@@ -76,6 +76,15 @@ LEFT JOIN (
     WHERE item_type = 'trophies' AND rn = 1
 ) trophies ON users.user_id = trophies.user_id;
 
+-- Create temporary table for gem wallet from previous day
+CREATE TEMP TABLE gem_wallet_previous_day AS
+SELECT
+    user_id,
+    balance_after AS gem_wallet_previous_day
+FROM jigma.sr_daily_user_activity
+WHERE date = etl_date - INTERVAL '1 day'
+  AND gem_wallet_end_of_day IS NOT NULL;
+
 -- Create temporary table for card levels from sr_card_upgrades
 CREATE TEMP TABLE card_levels AS
 SELECT
@@ -307,6 +316,7 @@ INSERT INTO jigma.sr_daily_user_activity (
     gem_wallet_end_of_day,
     gold_wallet_end_of_day,
     trophies_end_of_day,
+    gem_wallet_previous_day,
     -- Card Levels End of Day
     golem_level_end_of_day,
     pekka_level_end_of_day,
@@ -376,6 +386,7 @@ SELECT
     cb.gem_wallet_end_of_day,
     cb.gold_wallet_end_of_day,
     cb.trophies_end_of_day,
+    gwpd.gem_wallet_previous_day,
     -- Card Levels End of Day
     cl.golem_level_end_of_day,
     cl.pekka_level_end_of_day,
@@ -439,6 +450,7 @@ SELECT
 FROM user_level ul
 LEFT JOIN experience_points xp ON ul.user_id = xp.user_id
 LEFT JOIN currency_balances cb ON ul.user_id = cb.user_id
+LEFT JOIN gem_wallet_previous_day gwpd ON ul.user_id = gwpd.user_id
 LEFT JOIN card_levels cl ON ul.user_id = cl.user_id
 LEFT JOIN card_counts cc ON ul.user_id = cc.user_id
 LEFT JOIN gem_flows gemf ON ul.user_id = gemf.user_id
