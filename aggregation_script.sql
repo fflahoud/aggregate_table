@@ -1,6 +1,13 @@
 -- Set the ETL date (typically the previous day)
 SET etl_date = '2023-10-15'::DATE;  -- Replace with current_date - 1 in production
 
+-- Create Main DAU table
+
+CREATE TEMP TABLE main AS
+SELECT timestamp::DATE, user_id
+FROM jigma.dau
+WHERE timestamp::DATE = etl_date;
+
 -- Create temporary table for user level from sr_action
 CREATE TEMP TABLE user_level AS
 SELECT
@@ -436,15 +443,16 @@ SELECT
     am.ads_revenue_generated_usd_today,
     so.messages_sent_today,
     so.friend_requests_sent_today
-FROM user_level ul
-LEFT JOIN experience_points xp ON ul.user_id = xp.user_id
-LEFT JOIN currency_balances cb ON ul.user_id = cb.user_id
-LEFT JOIN card_levels cl ON ul.user_id = cl.user_id
-LEFT JOIN card_counts cc ON ul.user_id = cc.user_id
-LEFT JOIN gem_flows gemf ON ul.user_id = gemf.user_id
-LEFT JOIN gold_flows goldf ON ul.user_id = goldf.user_id
-LEFT JOIN purchase_metrics pm ON ul.user_id = pm.user_id
-LEFT JOIN session_metrics sm ON ul.user_id = sm.user_id
-LEFT JOIN iap_today iap ON ul.user_id = iap.user_id
-LEFT JOIN ads_metrics am ON ul.user_id = am.user_id
-LEFT JOIN social_metrics so ON ul.user_id = so.user_id;
+FROM main m
+LEFT JOIN user_level m on m=user_id = ul.user_id
+LEFT JOIN experience_points xp ON m.user_id = xp.user_id
+LEFT JOIN currency_balances cb ON m.user_id = cb.user_id
+LEFT JOIN card_levels cl ON m.user_id = cl.user_id
+LEFT JOIN card_counts cc ON m.user_id = cc.user_id
+LEFT JOIN gem_flows gemf ON m.user_id = gemf.user_id
+LEFT JOIN gold_flows goldf ON m.user_id = goldf.user_id
+LEFT JOIN purchase_metrics pm ON m.user_id = pm.user_id
+LEFT JOIN session_metrics sm ON m.user_id = sm.user_id
+LEFT JOIN iap_today iap ON m.user_id = iap.user_id
+LEFT JOIN ads_metrics am ON m.user_id = am.user_id
+LEFT JOIN social_metrics so ON m.user_id = so.user_id;
