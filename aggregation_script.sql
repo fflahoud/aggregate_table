@@ -1,4 +1,4 @@
--- Set the ETL date (typically the previous day)
+"-- Set the ETL date (typically the previous day)
 SET etl_date = '2023-10-15'::DATE;  -- Replace with current_date - 1 in production
 
 -- Create Main DAU table
@@ -96,7 +96,8 @@ SELECT
     MAX(CASE WHEN clu.card_id = 'giant' THEN clu.new_level END) AS giant_level_end_of_day,
     MAX(CASE WHEN clu.card_id = 'minion' THEN clu.new_level END) AS minion_level_end_of_day,
     MAX(CASE WHEN clu.card_id = 'hog_rider' THEN clu.new_level END) AS hog_rider_level_end_of_day,
-    MAX(CASE WHEN clu.card_id = 'baby_dragon' THEN clu.new_level END) AS baby_dragon_level_end_of_day
+    MAX(CASE WHEN clu.card_id = 'baby_dragon' THEN clu.new_level END) AS baby_dragon_level_end_of_day,
+    MAX(CASE WHEN clu.card_id = 'golden_giant' THEN clu.new_level END) AS golden_giant_level_end_of_day
 FROM (
     SELECT
         cu.user_id,
@@ -125,7 +126,7 @@ SELECT
 FROM jigma.sr_economy e
 WHERE e.item_type IN (
     'golem_card', 'pekka_card', 'princess_card', 'wizard_card', 'archer_card',
-    'knight_card', 'giant_card', 'minion_card', 'hog_rider_card', 'baby_dragon_card'
+    'knight_card', 'giant_card', 'minion_card', 'hog_rider_card', 'baby_dragon_card', 'golden_giant_card'
   )
   AND e.timestamp::DATE <= etl_date;
 
@@ -142,7 +143,8 @@ SELECT
     giant.balance_after AS giant_cards_owned_end_of_day,
     minion.balance_after AS minion_cards_owned_end_of_day,
     hog_rider.balance_after AS hog_rider_cards_owned_end_of_day,
-    baby_dragon.balance_after AS baby_dragon_cards_owned_end_of_day
+    baby_dragon.balance_after AS baby_dragon_cards_owned_end_of_day,
+    golden_giant.balance_after AS golden_giant_cards_owned_end_of_day
 FROM (SELECT DISTINCT user_id FROM latest_card_balances) users
 LEFT JOIN (
     SELECT user_id, balance_after
@@ -193,7 +195,12 @@ LEFT JOIN (
     SELECT user_id, balance_after
     FROM latest_card_balances
     WHERE item_type = 'baby_dragon_card' AND rn = 1
-) baby_dragon ON users.user_id = baby_dragon.user_id;
+) baby_dragon ON users.user_id = baby_dragon.user_id
+LEFT JOIN (
+    SELECT user_id, balance_after
+    FROM latest_card_balances
+    WHERE item_type = 'golden_giant_card' AND rn = 1
+) golden_giant ON users.user_id = golden_giant.user_id;
 
 -- Create temporary table for gem flows from sr_economy
 CREATE TEMP TABLE gem_flows AS
@@ -211,7 +218,8 @@ SELECT
     SUM(CASE WHEN e.transaction_flow_type = 'outflow' AND e.item_type = 'gem' AND e.transaction_type_id = 'giant_purchase' THEN e.amount ELSE 0 END) AS gem_outflow_giant,
     SUM(CASE WHEN e.transaction_flow_type = 'outflow' AND e.item_type = 'gem' AND e.transaction_type_id = 'minion_purchase' THEN e.amount ELSE 0 END) AS gem_outflow_minion,
     SUM(CASE WHEN e.transaction_flow_type = 'outflow' AND e.item_type = 'gem' AND e.transaction_type_id = 'hog_rider_purchase' THEN e.amount ELSE 0 END) AS gem_outflow_hog_rider,
-    SUM(CASE WHEN e.transaction_flow_type = 'outflow' AND e.item_type = 'gem' AND e.transaction_type_id = 'baby_dragon_purchase' THEN e.amount ELSE 0 END) AS gem_outflow_baby_dragon
+    SUM(CASE WHEN e.transaction_flow_type = 'outflow' AND e.item_type = 'gem' AND e.transaction_type_id = 'baby_dragon_purchase' THEN e.amount ELSE 0 END) AS gem_outflow_baby_dragon,
+    SUM(CASE WHEN e.transaction_flow_type = 'outflow' AND e.item_type = 'gem' AND e.transaction_type_id = 'golden_giant_purchase' THEN e.amount ELSE 0 END) AS gem_outflow_golden_giant
 FROM jigma.sr_economy e
 WHERE e.timestamp::DATE = etl_date
 GROUP BY e.user_id;
@@ -232,7 +240,8 @@ SELECT
     SUM(CASE WHEN e.transaction_flow_type = 'outflow' AND e.item_type = 'gold' AND e.transaction_type_id = 'giant_upgrade' THEN e.amount ELSE 0 END) AS gold_outflow_giant_upgrade,
     SUM(CASE WHEN e.transaction_flow_type = 'outflow' AND e.item_type = 'gold' AND e.transaction_type_id = 'minion_upgrade' THEN e.amount ELSE 0 END) AS gold_outflow_minion_upgrade,
     SUM(CASE WHEN e.transaction_flow_type = 'outflow' AND e.item_type = 'gold' AND e.transaction_type_id = 'hog_rider_upgrade' THEN e.amount ELSE 0 END) AS gold_outflow_hog_rider_upgrade,
-    SUM(CASE WHEN e.transaction_flow_type = 'outflow' AND e.item_type = 'gold' AND e.transaction_type_id = 'baby_dragon_upgrade' THEN e.amount ELSE 0 END) AS gold_outflow_baby_dragon_upgrade
+    SUM(CASE WHEN e.transaction_flow_type = 'outflow' AND e.item_type = 'gold' AND e.transaction_type_id = 'baby_dragon_upgrade' THEN e.amount ELSE 0 END) AS gold_outflow_baby_dragon_upgrade,
+    SUM(CASE WHEN e.transaction_flow_type = 'outflow' AND e.item_type = 'gold' AND e.transaction_type_id = 'golden_giant_upgrade' THEN e.amount ELSE 0 END) AS gold_outflow_golden_giant_upgrade
 FROM jigma.sr_economy e
 WHERE e.timestamp::DATE = etl_date
 GROUP BY e.user_id;
@@ -325,6 +334,7 @@ INSERT INTO jigma.sr_daily_user_activity (
     minion_level_end_of_day,
     hog_rider_level_end_of_day,
     baby_dragon_level_end_of_day,
+    golden_giant_level_end_of_day,
     -- Card Counts End of Day
     golem_cards_owned_end_of_day,
     pekka_cards_owned_end_of_day,
@@ -336,6 +346,7 @@ INSERT INTO jigma.sr_daily_user_activity (
     minion_cards_owned_end_of_day,
     hog_rider_cards_owned_end_of_day,
     baby_dragon_cards_owned_end_of_day,
+    golden_giant_cards_owned_end_of_day,
     -- Gem Outflows for Creature Purchases
     gem_outflow_golem,
     gem_outflow_pekka,
@@ -347,6 +358,7 @@ INSERT INTO jigma.sr_daily_user_activity (
     gem_outflow_minion,
     gem_outflow_hog_rider,
     gem_outflow_baby_dragon,
+    gem_outflow_golden_giant,
     -- Gold Outflows for Creature Upgrades
     gold_outflow_golem_upgrade,
     gold_outflow_pekka_upgrade,
@@ -358,6 +370,7 @@ INSERT INTO jigma.sr_daily_user_activity (
     gold_outflow_minion_upgrade,
     gold_outflow_hog_rider_upgrade,
     gold_outflow_baby_dragon_upgrade,
+    gold_outflow_golden_giant_upgrade,
     -- Other metrics...
     lifetime_spend_usd,
     spend_last_7_days_usd,
@@ -394,6 +407,7 @@ SELECT
     cl.minion_level_end_of_day,
     cl.hog_rider_level_end_of_day,
     cl.baby_dragon_level_end_of_day,
+    cl.golden_giant_level_end_of_day,
     -- Card Counts End of Day
     cc.golem_cards_owned_end_of_day,
     cc.pekka_cards_owned_end_of_day,
@@ -405,6 +419,7 @@ SELECT
     cc.minion_cards_owned_end_of_day,
     cc.hog_rider_cards_owned_end_of_day,
     cc.baby_dragon_cards_owned_end_of_day,
+    cc.golden_giant_cards_owned_end_of_day,
     -- Gem Outflows for Creature Purchases
     gemf.gem_outflow_golem,
     gemf.gem_outflow_pekka,
@@ -416,6 +431,7 @@ SELECT
     gemf.gem_outflow_minion,
     gemf.gem_outflow_hog_rider,
     gemf.gem_outflow_baby_dragon,
+    gemf.gem_outflow_golden_giant,
     -- Gold Outflows for Creature Upgrades
     goldf.gold_outflow_golem_upgrade,
     goldf.gold_outflow_pekka_upgrade,
@@ -427,6 +443,7 @@ SELECT
     goldf.gold_outflow_minion_upgrade,
     goldf.gold_outflow_hog_rider_upgrade,
     goldf.gold_outflow_baby_dragon_upgrade,
+    goldf.gold_outflow_golden_giant_upgrade,
     -- Other metrics...
     pm.lifetime_spend_usd,
     pm.spend_last_7_days_usd,
@@ -444,7 +461,7 @@ SELECT
     so.messages_sent_today,
     so.friend_requests_sent_today
 FROM main m
-LEFT JOIN user_level m on m=user_id = ul.user_id
+LEFT JOIN user_level ul ON m.user_id = ul.user_id
 LEFT JOIN experience_points xp ON m.user_id = xp.user_id
 LEFT JOIN currency_balances cb ON m.user_id = cb.user_id
 LEFT JOIN card_levels cl ON m.user_id = cl.user_id
@@ -456,3 +473,4 @@ LEFT JOIN session_metrics sm ON m.user_id = sm.user_id
 LEFT JOIN iap_today iap ON m.user_id = iap.user_id
 LEFT JOIN ads_metrics am ON m.user_id = am.user_id
 LEFT JOIN social_metrics so ON m.user_id = so.user_id;
+"
