@@ -1,3 +1,4 @@
+```sql
 -- Set the ETL date (typically the previous day)
 SET etl_date = '2023-10-15'::DATE;  -- Replace with current_date - 1 in production
 
@@ -30,9 +31,22 @@ WHERE ul.rn = 1;
 -- Create temporary table for experience points from sr_economy
 CREATE TEMP TABLE experience_points AS
 SELECT
-    ep.user_id,
-    ep.balance_after AS experience_points_end_of_day
+    ep_start.user_id,
+    ep_start.balance_before AS experience_points_start_of_day,
+    ep_end.balance_after AS experience_points_end_of_day
 FROM (
+    SELECT
+        e.user_id,
+        e.balance_before,
+        ROW_NUMBER() OVER (
+            PARTITION BY e.user_id
+            ORDER BY e.timestamp ASC
+        ) AS rn
+    FROM jigma.sr_economy e
+    WHERE e.item_type = 'experience_points'
+      AND e.timestamp::DATE = etl_date
+) ep_start
+JOIN (
     SELECT
         e.user_id,
         e.balance_after,
@@ -43,8 +57,8 @@ FROM (
     FROM jigma.sr_economy e
     WHERE e.item_type = 'experience_points'
       AND e.timestamp::DATE <= etl_date
-) ep
-WHERE ep.rn = 1;
+) ep_end ON ep_start.user_id = ep_end.user_id
+WHERE ep_start.rn = 1 AND ep_end.rn = 1;
 
 -- Create temporary table for currency balances from sr_economy
 CREATE TEMP TABLE latest_currency_balances AS
@@ -310,6 +324,7 @@ INSERT INTO jigma.sr_daily_user_activity (
     date,
     user_id,
     player_level_end_of_day,
+    experience_points_start_of_day,
     experience_points_end_of_day,
     gem_wallet_end_of_day,
     gold_wallet_end_of_day,
@@ -379,6 +394,7 @@ SELECT
     etl_date AS date,
     ul.user_id,
     ul.player_level_end_of_day,
+    xp.experience_points_start_of_day,
     xp.experience_points_end_of_day,
     cb.gem_wallet_end_of_day,
     cb.gold_wallet_end_of_day,
@@ -444,7 +460,7 @@ SELECT
     so.messages_sent_today,
     so.friend_requests_sent_today
 FROM main m
-LEFT JOIN user_level m on m=user_id = ul.user_id
+LEFT JOIN user_level ul ON m.user_id = ul.user_id
 LEFT JOIN experience_points xp ON m.user_id = xp.user_id
 LEFT JOIN currency_balances cb ON m.user_id = cb.user_id
 LEFT JOIN card_levels cl ON m.user_id = cl.user_id
@@ -456,3 +472,4 @@ LEFT JOIN session_metrics sm ON m.user_id = sm.user_id
 LEFT JOIN iap_today iap ON m.user_id = iap.user_id
 LEFT JOIN ads_metrics am ON m.user_id = am.user_id
 LEFT JOIN social_metrics so ON m.user_id = so.user_id;
+```
