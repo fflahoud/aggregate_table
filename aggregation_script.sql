@@ -44,7 +44,7 @@ FROM (
         ) AS rn
     FROM jigma.sr_economy e
     WHERE e.item_type = 'experience_points'
-      AND e.timestamp::DATE = etl_date
+      AND e.timestamp::DATE <= etl_date - 1
 ) ep_start
 JOIN (
     SELECT
