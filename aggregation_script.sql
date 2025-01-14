@@ -1,8 +1,8 @@
+```sql
 -- Set the ETL date (typically the previous day)
 SET etl_date = '2023-10-15'::DATE;  -- Replace with current_date - 1 in production
 
 -- Create Main DAU table
-
 CREATE TEMP TABLE main AS
 SELECT timestamp::DATE, user_id
 FROM jigma.dau
@@ -129,71 +129,23 @@ WHERE e.item_type IN (
   )
   AND e.timestamp::DATE <= etl_date;
 
--- Create temporary table for card counts
+-- Create optimized temporary table for card counts
 CREATE TEMP TABLE card_counts AS
 SELECT
-    users.user_id,
-    golem.balance_after AS golem_cards_owned_end_of_day,
-    pekka.balance_after AS pekka_cards_owned_end_of_day,
-    princess.balance_after AS princess_cards_owned_end_of_day,
-    wizard.balance_after AS wizard_cards_owned_end_of_day,
-    archer.balance_after AS archer_cards_owned_end_of_day,
-    knight.balance_after AS knight_cards_owned_end_of_day,
-    giant.balance_after AS giant_cards_owned_end_of_day,
-    minion.balance_after AS minion_cards_owned_end_of_day,
-    hog_rider.balance_after AS hog_rider_cards_owned_end_of_day,
-    baby_dragon.balance_after AS baby_dragon_cards_owned_end_of_day
-FROM (SELECT DISTINCT user_id FROM latest_card_balances) users
-LEFT JOIN (
-    SELECT user_id, balance_after
-    FROM latest_card_balances
-    WHERE item_type = 'golem_card' AND rn = 1
-) golem ON users.user_id = golem.user_id
-LEFT JOIN (
-    SELECT user_id, balance_after
-    FROM latest_card_balances
-    WHERE item_type = 'pekka_card' AND rn = 1
-) pekka ON users.user_id = pekka.user_id
-LEFT JOIN (
-    SELECT user_id, balance_after
-    FROM latest_card_balances
-    WHERE item_type = 'princess_card' AND rn = 1
-) princess ON users.user_id = princess.user_id
-LEFT JOIN (
-    SELECT user_id, balance_after
-    FROM latest_card_balances
-    WHERE item_type = 'wizard_card' AND rn = 1
-) wizard ON users.user_id = wizard.user_id
-LEFT JOIN (
-    SELECT user_id, balance_after
-    FROM latest_card_balances
-    WHERE item_type = 'archer_card' AND rn = 1
-) archer ON users.user_id = archer.user_id
-LEFT JOIN (
-    SELECT user_id, balance_after
-    FROM latest_card_balances
-    WHERE item_type = 'knight_card' AND rn = 1
-) knight ON users.user_id = knight.user_id
-LEFT JOIN (
-    SELECT user_id, balance_after
-    FROM latest_card_balances
-    WHERE item_type = 'giant_card' AND rn = 1
-) giant ON users.user_id = giant.user_id
-LEFT JOIN (
-    SELECT user_id, balance_after
-    FROM latest_card_balances
-    WHERE item_type = 'minion_card' AND rn = 1
-) minion ON users.user_id = minion.user_id
-LEFT JOIN (
-    SELECT user_id, balance_after
-    FROM latest_card_balances
-    WHERE item_type = 'hog_rider_card' AND rn = 1
-) hog_rider ON users.user_id = hog_rider.user_id
-LEFT JOIN (
-    SELECT user_id, balance_after
-    FROM latest_card_balances
-    WHERE item_type = 'baby_dragon_card' AND rn = 1
-) baby_dragon ON users.user_id = baby_dragon.user_id;
+    user_id,
+    MAX(CASE WHEN item_type = 'golem_card' THEN balance_after END) AS golem_cards_owned_end_of_day,
+    MAX(CASE WHEN item_type = 'pekka_card' THEN balance_after END) AS pekka_cards_owned_end_of_day,
+    MAX(CASE WHEN item_type = 'princess_card' THEN balance_after END) AS princess_cards_owned_end_of_day,
+    MAX(CASE WHEN item_type = 'wizard_card' THEN balance_after END) AS wizard_cards_owned_end_of_day,
+    MAX(CASE WHEN item_type = 'archer_card' THEN balance_after END) AS archer_cards_owned_end_of_day,
+    MAX(CASE WHEN item_type = 'knight_card' THEN balance_after END) AS knight_cards_owned_end_of_day,
+    MAX(CASE WHEN item_type = 'giant_card' THEN balance_after END) AS giant_cards_owned_end_of_day,
+    MAX(CASE WHEN item_type = 'minion_card' THEN balance_after END) AS minion_cards_owned_end_of_day,
+    MAX(CASE WHEN item_type = 'hog_rider_card' THEN balance_after END) AS hog_rider_cards_owned_end_of_day,
+    MAX(CASE WHEN item_type = 'baby_dragon_card' THEN balance_after END) AS baby_dragon_cards_owned_end_of_day
+FROM latest_card_balances
+WHERE rn = 1
+GROUP BY user_id;
 
 -- Create temporary table for gem flows from sr_economy
 CREATE TEMP TABLE gem_flows AS
@@ -444,7 +396,7 @@ SELECT
     so.messages_sent_today,
     so.friend_requests_sent_today
 FROM main m
-LEFT JOIN user_level m on m=user_id = ul.user_id
+LEFT JOIN user_level ul ON m.user_id = ul.user_id
 LEFT JOIN experience_points xp ON m.user_id = xp.user_id
 LEFT JOIN currency_balances cb ON m.user_id = cb.user_id
 LEFT JOIN card_levels cl ON m.user_id = cl.user_id
@@ -456,3 +408,4 @@ LEFT JOIN session_metrics sm ON m.user_id = sm.user_id
 LEFT JOIN iap_today iap ON m.user_id = iap.user_id
 LEFT JOIN ads_metrics am ON m.user_id = am.user_id
 LEFT JOIN social_metrics so ON m.user_id = so.user_id;
+```
