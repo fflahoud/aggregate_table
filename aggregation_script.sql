@@ -1,4 +1,3 @@
-```sql
 -- Set the ETL date (typically the previous day)
 SET etl_date = '2023-10-15'::DATE;  -- Replace with current_date - 1 in production
 
@@ -474,4 +473,3 @@ LEFT JOIN session_metrics sm ON m.user_id = sm.user_id
 LEFT JOIN iap_today iap ON m.user_id = iap.user_id
 LEFT JOIN ads_metrics am ON m.user_id = am.user_id
 LEFT JOIN social_metrics so ON m.user_id = so.user_id;
-```
