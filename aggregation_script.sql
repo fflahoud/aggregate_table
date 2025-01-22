@@ -245,7 +245,10 @@ SELECT
     SUM(CASE WHEN iap.transaction_date BETWEEN etl_date - INTERVAL '6 days' AND etl_date THEN iap.amount_usd ELSE 0 END) AS spend_last_7_days_usd,
     SUM(CASE WHEN iap.transaction_date BETWEEN etl_date - INTERVAL '31 days' AND etl_date THEN iap.amount_usd ELSE 0 END) AS spend_last_32_days_usd,
     MAX(CASE WHEN iap.item_purchased = 'ads_free_package' AND iap.transaction_status = 'completed' THEN TRUE ELSE FALSE END) AS has_purchased_ads_free,
-    MAX(CASE WHEN iap.item_purchased = 'battle_pass' AND iap.transaction_status = 'completed' THEN TRUE ELSE FALSE END) AS has_purchased_battle_pass
+    MAX(CASE WHEN iap.item_purchased = 'battle_pass' AND iap.transaction_status = 'completed' THEN TRUE ELSE FALSE END) AS has_purchased_battle_pass,
+    MAX(CASE WHEN iap.description = 'friends_pass' AND iap.transaction_status = 'completed' 
+             AND iap.transaction_date >= DATE_TRUNC('month', etl_date) 
+             AND iap.transaction_date <= etl_date THEN TRUE ELSE FALSE END) AS has_friends_pass_this_month
 FROM jigma.sr_iap iap
 WHERE iap.transaction_date <= etl_date
 GROUP BY iap.user_id;
@@ -314,6 +317,7 @@ INSERT INTO jigma.sr_daily_user_activity (
     gem_wallet_end_of_day,
     gold_wallet_end_of_day,
     trophies_end_of_day,
+    has_friends_pass_this_month,
     -- Card Levels End of Day
     golem_level_end_of_day,
     pekka_level_end_of_day,
@@ -383,6 +387,7 @@ SELECT
     cb.gem_wallet_end_of_day,
     cb.gold_wallet_end_of_day,
     cb.trophies_end_of_day,
+    pm.has_friends_pass_this_month,
     -- Card Levels End of Day
     cl.golem_level_end_of_day,
     cl.pekka_level_end_of_day,
@@ -444,7 +449,7 @@ SELECT
     so.messages_sent_today,
     so.friend_requests_sent_today
 FROM main m
-LEFT JOIN user_level m on m=user_id = ul.user_id
+LEFT JOIN user_level ul ON m.user_id = ul.user_id
 LEFT JOIN experience_points xp ON m.user_id = xp.user_id
 LEFT JOIN currency_balances cb ON m.user_id = cb.user_id
 LEFT JOIN card_levels cl ON m.user_id = cl.user_id
