@@ -248,9 +248,9 @@ SELECT
     MAX(CASE WHEN iap.item_purchased = 'battle_pass' AND iap.transaction_status = 'completed' THEN TRUE ELSE FALSE END) AS has_purchased_battle_pass,
     MAX(CASE WHEN iap.description = 'friends_pass' 
              AND iap.transaction_status = 'completed'
-             AND iap.transaction_date >= DATE_TRUNC('month', etl_date)
+             AND iap.transaction_date >= etl_date - INTERVAL '29 days'
              AND iap.transaction_date <= etl_date
-        THEN TRUE ELSE FALSE END) AS has_purchased_friends_pass_this_month
+        THEN TRUE ELSE FALSE END) AS has_purchased_friends_pass_last_30_days
 FROM jigma.sr_iap iap
 WHERE iap.transaction_date <= etl_date
 GROUP BY iap.user_id;
@@ -369,7 +369,7 @@ INSERT INTO jigma.sr_daily_user_activity (
     spend_last_32_days_usd,
     has_purchased_ads_free,
     has_purchased_battle_pass,
-    has_purchased_friends_pass_this_month,
+    has_purchased_friends_pass_last_30_days,
     sessions_started_today,
     first_login_time,
     last_login_time,
@@ -439,7 +439,7 @@ SELECT
     pm.spend_last_32_days_usd,
     pm.has_purchased_ads_free,
     pm.has_purchased_battle_pass,
-    pm.has_purchased_friends_pass_this_month,
+    pm.has_purchased_friends_pass_last_30_days,
     sm.sessions_started_today,
     sm.first_login_time,
     sm.last_login_time,
