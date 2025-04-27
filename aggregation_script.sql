@@ -245,7 +245,10 @@ SELECT
     SUM(CASE WHEN iap.transaction_date BETWEEN etl_date - INTERVAL '6 days' AND etl_date THEN iap.amount_usd ELSE 0 END) AS spend_last_7_days_usd,
     SUM(CASE WHEN iap.transaction_date BETWEEN etl_date - INTERVAL '31 days' AND etl_date THEN iap.amount_usd ELSE 0 END) AS spend_last_32_days_usd,
     MAX(CASE WHEN iap.item_purchased = 'ads_free_package' AND iap.transaction_status = 'completed' THEN TRUE ELSE FALSE END) AS has_purchased_ads_free,
-    MAX(CASE WHEN iap.item_purchased = 'battle_pass' AND iap.transaction_status = 'completed' THEN TRUE ELSE FALSE END) AS has_purchased_battle_pass
+    MAX(CASE WHEN iap.item_purchased = 'battle_pass' AND iap.transaction_status = 'completed' THEN TRUE ELSE FALSE END) AS has_purchased_battle_pass,
+    MAX(CASE WHEN iap.description = 'friends_pass' AND iap.transaction_status = 'completed' 
+             AND iap.transaction_date >= etl_date - INTERVAL '29 days' 
+             AND iap.transaction_date <= etl_date THEN TRUE ELSE FALSE END) AS has_purchased_friends_pass_last_30_days
 FROM jigma.sr_iap iap
 WHERE iap.transaction_date <= etl_date
 GROUP BY iap.user_id;
@@ -364,6 +367,7 @@ INSERT INTO jigma.sr_daily_user_activity (
     spend_last_32_days_usd,
     has_purchased_ads_free,
     has_purchased_battle_pass,
+    has_purchased_friends_pass_last_30_days,
     sessions_started_today,
     first_login_time,
     last_login_time,
@@ -433,6 +437,7 @@ SELECT
     pm.spend_last_32_days_usd,
     pm.has_purchased_ads_free,
     pm.has_purchased_battle_pass,
+    pm.has_purchased_friends_pass_last_30_days,
     sm.sessions_started_today,
     sm.first_login_time,
     sm.last_login_time,
@@ -444,7 +449,7 @@ SELECT
     so.messages_sent_today,
     so.friend_requests_sent_today
 FROM main m
-LEFT JOIN user_level m on m=user_id = ul.user_id
+LEFT JOIN user_level ul ON m.user_id = ul.user_id
 LEFT JOIN experience_points xp ON m.user_id = xp.user_id
 LEFT JOIN currency_balances cb ON m.user_id = cb.user_id
 LEFT JOIN card_levels cl ON m.user_id = cl.user_id
